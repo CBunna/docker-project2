@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  # Backend service
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: todo-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - CORS_ORIGIN=http://localhost:3002
+    volumes:
+      # Mount source code for development (hot reload)
+      - ./server/src:/app/src:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - todo-network
+
+    # Frontend service
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    ports:
+      - "3002:80"
+    environment:
+      - REACT_APP_API_URL=http://backend:3001/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:80",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - todo-network
+
+# Define a custom network for service communication
+networks:
+  todo-network:
+    driver: bridge
+
+# Optional: Define volumes for data persistence
+volumes:
+  todo-data:
